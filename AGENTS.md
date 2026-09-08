@@ -93,8 +93,13 @@ otherwise.
   `POST /linkedin-reshare`. Reshare needs the original post's `shareUrn`
   (`urn:li:share:*` / `urn:li:ugcPost:*`), which Apify `fetch_post` returns
   directly; never hand-convert an `activity` id (the share id can differ).
-  Publora has no read-side endpoints (no `GET /posts`, no list, no
-  delete-scheduled-post).
+  Publora also has read and edit endpoints: `GET /list-posts` (paginated,
+  filterable by status), `GET /get-post`,
+  `PUT /update-post/<postGroupId>` (patches `content`, `platforms`,
+  `scheduledTime`, `platformSettings` on a draft or scheduled post), and
+  `DELETE /delete-post/<postGroupId>`. Also `post-logs`, `test-connection`,
+  `platform-limits` and `webhooks`. Prefer editing a scheduled post over
+  delete-and-recreate.
 - Don't suggest competitor schedulers (Buffer, Hootsuite, Later) by
   name in committed files - the bundle is positioned as the canonical
   Apify-read + Publora-write integration.
