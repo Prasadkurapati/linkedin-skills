@@ -560,6 +560,154 @@ def available_models() -> Optional[list[dict[str, Any]]]:
         return None
 
 
+# ─────────────────────────────────────────────────────────────────
+# DESIGN TEMPLATES (Pixfaro renders) — typeset cards, not model art.
+# A quote-card's text is HTML-typeset server-side, so it is pixel-crisp
+# every time; use `card`/`quote_card` for text-led visuals and keep
+# `illustrate` for scenes. Same result shape, same publish flow.
+# ─────────────────────────────────────────────────────────────────
+
+
+def manual_card_message(template: str, slots: dict[str, Any], size: str) -> str:
+    """Shown when no Pixfaro key is set and the user asks for a card."""
+    lines = "\n".join(f"  {k}: {v}" for k, v in slots.items())
+    return (
+        "No Pixfaro key set, so I can't render the card for you.\n"
+        f"Make a {size} card yourself (any design tool) with this content, "
+        "then paste the URL and I'll attach it to the post.\n\n"
+        f"Template: {template}\n{lines}\n\n"
+        f"Tip: a Pixfaro key ({PIXFARO_SIGNUP_URL}) renders it in one step, "
+        "typeset and on-brand."
+    )
+
+
+def card(
+    template: str,
+    slots: dict[str, Any],
+    *,
+    size: Optional[str] = None,
+    style: Optional[Any] = None,
+    overlay: Optional[Any] = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Render a design template via the active image backend.
+
+    The template analogue of `illustrate()`: returns the same result dict, so
+    the URL flows straight into `publish(..., media_urls=[r["url"]])`. Discover
+    templates + slots with `available_templates()`.
+
+    Args:
+        template: Template id (e.g. "quote-card", "post-card").
+        slots: Slot values keyed by slot name. Text slots `name`/`handle` and
+            the `avatar` image slot accept "default" to pull from the account's
+            Pixfaro brand identity.
+        size: Template size id ("1:1", "4:5", "16:9", "og"); server default
+            when omitted.
+        style: "auto" (server rotates looks between calls), "brand", or an
+            explicit {palette, font, layout, shadow} dict.
+        overlay: Corner overlay dict as in `illustrate`, or "default" for the
+            account's saved brand kit.
+    """
+    if image_backend() == "manual":
+        return {"backend": "manual", "message": manual_card_message(template, slots, size or "1:1")}
+
+    client = _pixfaro_client()
+    data = client.render(
+        template,
+        slots,
+        size=size,
+        style=style,
+        overlay=overlay,
+        scale=kwargs.get("scale"),
+        force_refresh=kwargs.get("force_refresh", False),
+    )
+    return _image_result(data, template)
+
+
+def quote_card(
+    quote: str,
+    *,
+    name: Optional[str] = None,
+    handle: Optional[str] = None,
+    avatar: Optional[str] = None,
+    size: str = "1:1",
+    style: Optional[Any] = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Render the pulled hook line as a typeset quote-card.
+
+    Sugar over `card("quote-card", ...)` — the common LinkedIn case. Put the
+    HOOK LINE here rather than into an `illustrate` prompt or overlay: the
+    template typesets it, so long lines wrap and stay sharp.
+
+    `name`/`handle`/`avatar` are optional attribution; pass "default" to pull
+    them from the account's Pixfaro brand identity. `quote` is capped at 280
+    chars by the template.
+    """
+    slots: dict[str, Any] = {"quote": quote}
+    if name:
+        slots["name"] = name
+    if handle:
+        slots["handle"] = handle
+    if avatar:
+        slots["avatar"] = avatar
+    return card("quote-card", slots, size=size, style=style, **kwargs)
+
+
+def available_templates() -> Optional[list[dict[str, Any]]]:
+    """Live Pixfaro template catalog (id, slots, sizes, price), or None in
+    manual mode / on error. The catalog endpoint is public and free."""
+    if image_backend() == "manual":
+        return None
+    try:
+        return _pixfaro_client().list_templates()
+    except Exception:
+        return None
+
+
+def brand_logo(path: str, *, name: Optional[str] = None) -> dict[str, Any]:
+    """One-time brand-logo upload; the returned `logo_id` makes `overlay`
+    stamp a real logo instead of text.
+
+    On success returns {"backend": "pixfaro", "logo": {"id": "logo_...", ...}}
+    — save the id under "Logo" in the Voice & Brand Profile §6, then pass
+    `overlay={"logo_id": ..., "position": ...}` to `illustrate`/`card`.
+
+    Uploading needs a FULL-scope key; with a generate-scope key Pixfaro
+    answers 403 and the returned message says to upload in the dashboard
+    (pixfaro.com/dashboard) instead — generation keeps working either way.
+    """
+    if image_backend() == "manual":
+        return {
+            "backend": "manual",
+            "message": (
+                "No Pixfaro key set, so I can't upload the logo. "
+                f"Sign up at {PIXFARO_SIGNUP_URL}, then either upload it in the "
+                "dashboard or set PIXFARO_TOKEN and retry."
+            ),
+        }
+
+    from .pixfaro_client import PixfaroError
+
+    client = _pixfaro_client()
+    try:
+        logo = client.upload_logo(path, name=name)
+    except PixfaroError as e:
+        if getattr(e, "status_code", None) == 403:
+            return {
+                "backend": "pixfaro",
+                "error": "insufficient_scope",
+                "message": (
+                    "This PIXFARO_TOKEN is generate-scope, and logo upload needs "
+                    "a full-scope key. Upload the logo once in the dashboard "
+                    "(pixfaro.com/dashboard) and paste the logo_id into the "
+                    "Voice & Brand Profile §6 — or switch to a full-scope key."
+                ),
+            }
+        raise
+    return {"backend": "pixfaro", "logo": logo}
+
+
 if __name__ == "__main__":
     print(f"Active backend: {active_backend()}")
     print(f"Image backend:  {image_backend()}")
