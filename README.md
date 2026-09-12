@@ -243,6 +243,8 @@ Posts with a visual get more dwell time. The Post Writer can generate an illustr
 
 Setup: drop `PIXFARO_TOKEN=pf_live_...` into your `.env`. The thin client at `lib/pixfaro_client.py` and the wrappers `lib.illustrate(prompt, kind=...)` / `lib.refine(image_id, instruction)` return a hosted URL that flows straight into `lib.publish(..., media_urls=[url])`. `refine` edits a prior image by its id (cheaper than regenerating); results carry `cost`, `balance_after`, and a `premium` flag so the skills never quietly spend on a pricey model.
 
+For **text-led visuals** (a quote-card of your hook), the skills skip the image model entirely and use Pixfaro's design templates: `lib.quote_card("<hook>", handle="@you", style="brand")` typesets the card server-side (`POST /v1/renders`), so the line is crisp at any length — same hosted-URL flow. `lib.available_templates()` lists templates and live prices. A brand logo can be uploaded once with `lib.brand_logo("logo.png")` (full-scope key); the returned `logo_id` goes into Voice & Brand Profile §6 and every overlay from then on stamps the real mark.
+
 ## Voice rules
 
 Every skill follows these rules automatically:
