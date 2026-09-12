@@ -107,6 +107,7 @@ Global voice rules: see root `SKILL.md` §Voice rules. Additional skill-specific
 - Never draft a reply to the user's own comment in the thread.
 - Whole-thread mode: cap the sweep at 100 comments per run (matches `fetch_post_comments`'s default ceiling); if the thread is larger, ask the user whether to sweep the most recent N or the most-liked N first.
 - Whole-thread mode: if more than 15 drafts survive filtering, still present them in one batch — don't split into multiple approval rounds unless the user asks to review in chunks.
+- **Whole-thread mode: publish approved replies one at a time, not in a burst.** LinkedIn's enforcement targets automation patterns and applies per-account comment rate limits (see `../../references/algorithm-heuristics.md`), and a dozen replies landing in the same second is that pattern exactly. Post them sequentially, and if the batch is larger than about 10, tell the user the sweep will be spread out and offer to publish the rest later rather than pushing everything at once. A 429 or a rejected publish means stop the run and report, never retry the remaining drafts in a loop.
 
 ## Examples
 
