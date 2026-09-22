@@ -8,17 +8,24 @@ No credentials and no real Pixfaro network calls are used.
 
 from __future__ import annotations
 
+import os
 import unittest
 from unittest.mock import patch
 
 from lib.pixfaro_client import PixfaroClient, PixfaroError
 
 
+def make_client() -> PixfaroClient:
+    """Create a Pixfaro client using a temporary test environment variable."""
+    with patch.dict(os.environ, {"PIXFARO_TOKEN": "test"}):
+        return PixfaroClient()
+
+
 class GenerateValidation(unittest.TestCase):
     """Invalid generation requests must fail before touching the network."""
 
     def setUp(self):
-        self.client = PixfaroClient(api_key="test-key")
+        self.client = make_client()
 
     @patch.object(PixfaroClient, "_post")
     def test_empty_prompt_is_rejected_before_calling(self, post):
@@ -39,7 +46,7 @@ class GenerateCache(unittest.TestCase):
     """Repeated identical generations should use the in-process cache."""
 
     def setUp(self):
-        self.client = PixfaroClient(api_key="test-key")
+        self.client = make_client()
         self.response = {
             "id": "img_123",
             "url": "https://media.example/image.png",
@@ -55,6 +62,7 @@ class GenerateCache(unittest.TestCase):
 
         self.assertEqual(first, self.response)
         self.assertEqual(second, self.response)
+
         post.assert_called_once_with(
             "/images/generations",
             {
@@ -70,7 +78,10 @@ class GenerateCache(unittest.TestCase):
         post.return_value = self.response
 
         self.client.generate("A data engineer at work")
-        self.client.generate("A data engineer at work", force_refresh=True)
+        self.client.generate(
+            "A data engineer at work",
+            force_refresh=True,
+        )
 
         self.assertEqual(post.call_count, 2)
 
@@ -79,7 +90,7 @@ class EditValidation(unittest.TestCase):
     """Edits must reference a real Pixfaro image id and instruction."""
 
     def setUp(self):
-        self.client = PixfaroClient(api_key="test-key")
+        self.client = make_client()
 
     @patch.object(PixfaroClient, "_post")
     def test_hosted_url_is_rejected_as_image_id(self, post):
@@ -103,14 +114,21 @@ class RetryBehaviour(unittest.TestCase):
     """Transient HTTP failures should be retried; client errors should not."""
 
     def setUp(self):
-        self.client = PixfaroClient(api_key="test-key")
+        self.client = make_client()
 
     @patch("lib.pixfaro_client.time.sleep")
     @patch.object(PixfaroClient, "_post")
     def test_rate_limit_is_retried(self, post, sleep):
         post.side_effect = [
-            PixfaroError("rate limited", status_code=429, retryable=True),
-            {"id": "img_123", "url": "https://media.example/image.png"},
+            PixfaroError(
+                "rate limited",
+                status_code=429,
+                retryable=True,
+            ),
+            {
+                "id": "img_123",
+                "url": "https://media.example/image.png",
+            },
         ]
 
         result = self.client.generate("A data engineer at work")
