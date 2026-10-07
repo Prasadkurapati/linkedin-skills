@@ -96,6 +96,15 @@ cd linkedin-skills
 
 The repo ships a `.claude/skills/` mirror of symlinks, so Claude Code finds all 12 skills on its own.
 
+**On Windows** those symlinks check out as twelve one-line text files unless git can create
+them, which needs Developer Mode or an elevated shell plus `git config core.symlinks true`.
+Without that, a plain clone loads no skills at all. Either clone with symlinks enabled, or
+replace the mirror with directory junctions, which need no admin rights:
+
+```cmd
+for /d %s in (skills\*) do mklink /J .claude\skills\%~nxs ..\..\%s
+```
+
 ### Hermes Agent
 
 Hermes Agent (Nous Research) follows the agentskills.io open standard and loads `skills/*/SKILL.md` directly. Clone the bundle into your Hermes skills folder:

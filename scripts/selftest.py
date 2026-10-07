@@ -443,7 +443,8 @@ def run_fresh(argv) -> int:
 
         venv = temp / "venv"
         subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True, capture_output=True, timeout=600)
-        python = venv / "bin" / "python"
+        # Windows puts the interpreter in Scripts\python.exe, not bin/python.
+        python = venv / ("Scripts" if os.name == "nt" else "bin") / "python"
         requirements = ["-r", str(clone / "requirements.txt")]
         dev = clone / "requirements-dev.txt"
         if dev.is_file():
