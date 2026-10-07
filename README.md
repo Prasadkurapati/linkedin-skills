@@ -202,6 +202,13 @@ Four of the skills (Comment Drafter, Reply Handler, Hook Extractor, Engagement M
 
 Setup: drop `APIFY_TOKEN=apify_api_...` into your `.env`. The thin client at `lib/apify_client.py` exposes `fetch_post`, `fetch_post_comments`, `fetch_user_recent_comments`, and `fetch_post_engagers`.
 
+**This tier needs Claude Code, not claude.ai (web).** Publora and Pixfaro each publish a
+connector, so publishing and image generation work on claude.ai with one click. Apify does
+not: the client reads `APIFY_TOKEN` from the environment and runs a Python process, and
+claude.ai gives a skill neither. On claude.ai the reading skills notice the missing token
+and ask you to paste the post or thread instead, which is the same quality of result with
+one more step. For automatic reads, run the bundle in Claude Code with a `.env`.
+
 A typical creator running daily comment ops + a weekly engager-analytics sweep stays under $2/month, well inside the free tier.
 
 ## Optional: auto-post with Publora
